@@ -1,13 +1,27 @@
 package dk.ockley.popularmovies;
 
+import android.app.Activity;
+import android.app.Fragment;
+import android.app.LoaderManager;
+import android.content.CursorLoader;
+import android.content.Loader;
+import android.database.Cursor;
+import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
-import android.support.v4.app.Fragment;
 import android.util.Log;
 import android.view.LayoutInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.AdapterView;
 import android.widget.GridView;
+import android.widget.SimpleCursorAdapter;
+import android.widget.Toast;
+
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -16,60 +30,182 @@ import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.ArrayList;
-import java.util.Arrays;
+
+import dk.ockley.popularmovies.adapters.FrontPosterAdapter;
+import dk.ockley.popularmovies.contentprovider.FavoritesProvider;
+import dk.ockley.popularmovies.data.FavoriteTable;
+import dk.ockley.popularmovies.models.ParcableMovie;
 
 /**
  * A placeholder fragment containing a simple view.
  */
-public class MainActivityFragment extends Fragment {
+public class MainActivityFragment extends Fragment implements LoaderManager.LoaderCallbacks<Cursor> {
 
-    private GridView popMovieGridView;
+    public static final String EXTRA_MOVIE = "extra_movie";
+    private static final String INSTANCE_MOVIE = "instane_movie";
+    private static final String LOG_TAG = MainActivityFragment.class.getSimpleName();
+    private GridView movieGridView;
+    private ArrayList<ParcableMovie> topMoviesParcel;
+    private Toast toast;
+    private Callbacks mCallbacks;
+    FrontPosterAdapter adapter;
+    FrontPosterAdapter favAdapter;
 
     public MainActivityFragment() {
+
     }
 
     @Override
-    public View onCreateView(LayoutInflater inflater, ViewGroup container,
-                             Bundle savedInstanceState) {
-        View v = inflater.inflate(R.layout.fragment_main, container, false);
+    public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setHasOptionsMenu(true);
+        getLoaderManager().initLoader(0, null, this);
+    }
 
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
 
-        String[] posterImagesArray = {
-                "http://www.impawards.com/2015/posters/hitman_agent_forty_seven_ver6.jpg",
-                "http://www.impawards.com/2011/posters/thor_ver3_xlg.jpg",
-                "http://www.impawards.com/intl/uk/2015/posters/shaun_the_sheep_ver14.jpg",
-                "http://www.impawards.com/2015/posters/mission_impossible__rogue_nation_ver14.jpg",
-                "http://www.impawards.com/2015/posters/goosebumps.jpg",
-                "http://www.impawards.com/2015/posters/jennys_wedding.jpg",
-                "http://www.impawards.com/2016/posters/finest_hours.jpg"
-        };
-        ArrayList<String> posterImageList = new ArrayList<String>(
-                Arrays.asList(posterImagesArray));
+        // Swith between all action bar settings
+        int id = item.getItemId();
+        switch (id) {
+            case (R.id.action_popular):
+                new FetchPopMovies().execute("popularity.desc");
+                break;
+            case (R.id.action_user_rating):
+                new FetchPopMovies().execute("vote_average.desc");
+                break;
+            case (R.id.action_user_favorites):
+                // Get user favorites from database
+                getLoaderManager().restartLoader(0, null, this);
 
-        popMovieGridView = (GridView) v.findViewById(R.id.popular_movies_gridview);
-        FrontPosterAdapter adapter = new FrontPosterAdapter(getActivity(), posterImageList);
-        //ArrayAdapter<String> adapter = new ArrayAdapter<String>(getActivity(), R.layout.frontpage_item, R.id.poster_image, posterImageList);
-        popMovieGridView.setAdapter(adapter);
+                break;
+
+        }
+        return super.onOptionsItemSelected(item);
+    }
+
+    @Override
+    public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
+
+        View v = inflater.inflate(R.layout.movie_list, container, false);
+
+        // Hook op grid view and fetch data
+        movieGridView = (GridView) v.findViewById(R.id.popular_movies_gridview);
+        new FetchPopMovies().execute("popularity.desc");
+
+        // Handle click and set a callback function
+        movieGridView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                mCallbacks.onMovieSelected((ParcableMovie) movieGridView.getItemAtPosition(position));
+            }
+        });
         return v;
     }
 
-    class FetchPopMovies extends AsyncTask<String, Void, ArrayList<String>> {
+    // Remember to save the outState in case of destruction
+    @Override
+    public void onSaveInstanceState(Bundle outState) {
+        super.onSaveInstanceState(outState);
+        outState.putParcelableArrayList(INSTANCE_MOVIE, topMoviesParcel);
+    }
+
+    // Methods to hook up the callback to the activity
+    @Override
+    public void onAttach(Activity activity) {
+        super.onAttach(activity);
+        mCallbacks = (Callbacks) activity;
+    }
+
+    @Override
+    public void onDetach() {
+        super.onDetach();
+        mCallbacks = null;
+    }
+
+
+
+    @Override
+    public Loader<Cursor> onCreateLoader(int id, Bundle args) {
+        Log.d(LOG_TAG, "CREATE LOADER");
+        String[] projection =
+                {
+                        FavoriteTable.COLUMN_ID,
+                        FavoriteTable.COLUMN_TITLE,
+                        FavoriteTable.COLUMN_IMAGE_PATH,
+                        FavoriteTable.COLUMN_RELEASE_DATE,
+                        FavoriteTable.COLUMN_USER_RATING,
+                        FavoriteTable.COLUMN_SYNOPSIS,
+                };
+        CursorLoader cursorLoader = new CursorLoader(getActivity(), FavoritesProvider.CONTENT_URI, projection, null, null, null);
+        return cursorLoader;
+    }
+
+    @Override
+    public void onLoadFinished(Loader<Cursor> loader, Cursor data) {
+        Log.d(LOG_TAG, "LOADER FINISHED");
+        topMoviesParcel = new ArrayList<>();
+        while(data.moveToNext()) {
+            topMoviesParcel.add(new ParcableMovie(
+                    data.getString(data.getColumnIndex(FavoriteTable.COLUMN_ID)),
+                    data.getString(data.getColumnIndex(FavoriteTable.COLUMN_TITLE)),
+                    data.getString(data.getColumnIndex(FavoriteTable.COLUMN_IMAGE_PATH)),
+                    data.getString(data.getColumnIndex(FavoriteTable.COLUMN_SYNOPSIS)),
+                    data.getFloat(data.getColumnIndex(FavoriteTable.COLUMN_USER_RATING)),
+                    data.getString(data.getColumnIndex(FavoriteTable.COLUMN_RELEASE_DATE))));
+        }
+
+        favAdapter = new FrontPosterAdapter(getActivity(), topMoviesParcel);
+        movieGridView.setAdapter(favAdapter);
+    }
+
+    @Override
+    public void onLoaderReset(Loader<Cursor> loader) {
+        Log.d(LOG_TAG, "LOADER RESET");
+
+    }
+
+    public interface Callbacks {
+
+        void onMovieSelected(ParcableMovie movie);
+    }
+
+    // Class to fetch data
+
+    class FetchPopMovies extends AsyncTask<String, Void, String> {
+        GridView grid;
+
+        public void FetchPopMovies() {
+            //grid = (GridView) ctx.findViewById(R.id.popular_movies_gridview);
+        }
 
         @Override
-        protected ArrayList<String> doInBackground(String... params) {
+        protected String doInBackground(String... params) {
+
+            if(params.length == 0) return null;
+
             // These two need to be declared outside the try/catch
             // so that they can be closed in the finally block.
             HttpURLConnection urlConnection = null;
             BufferedReader reader = null;
 
             // Will contain the raw JSON response as a string.
-            String forecastJsonStr = null;
+            String moviesJsonStr = null;
 
             try {
                 // Construct the URL for the OpenWeatherMap query
                 // Possible parameters are avaiable at OWM's forecast API page, at
                 // http://openweathermap.org/API#forecast
-                URL url = new URL("http://api.themoviedb.org/3/discover/movie?sort_by=popularity.desc&api_key=b627c3bad1168d44aca4ff3bb78a5e23");
+                final String BASE_URL = "http://api.themoviedb.org/3/discover/movie?";
+                final String SORT_BY_PARAM = "sort_by";
+                final String API_KEY_PARAM = "api_key";
+                Uri builtURI = Uri.parse(BASE_URL).buildUpon()
+                        .appendQueryParameter(SORT_BY_PARAM, params[0])
+                        .appendQueryParameter(API_KEY_PARAM, "INSERT KEY HERE")
+                        .build();
+                URL url = new URL(builtURI.toString());
+
+                //Log.v("POPMOVIE", "Built URI : " + builtURI.toString());
 
                 // Create the request to OpenWeatherMap, and open the connection
                 urlConnection = (HttpURLConnection) url.openConnection();
@@ -97,9 +233,10 @@ public class MainActivityFragment extends Fragment {
                     // Stream was empty.  No point in parsing.
                     return null;
                 }
-                forecastJsonStr = buffer.toString();
+                moviesJsonStr = buffer.toString();
+                //Log.d("POPMOVIE", "Final string " + moviesJsonStr);
             } catch (IOException e) {
-                Log.e("POPMOVIE", "Error ", e);
+                Log.e(LOG_TAG, "Error ", e);
                 // If the code didn't successfully get the weather data, there's no point in attemping
                 // to parse it.
                 return null;
@@ -111,39 +248,40 @@ public class MainActivityFragment extends Fragment {
                     try {
                         reader.close();
                     } catch (final IOException e) {
-                        Log.e("POPMOVIE", "Error closing stream", e);
+                        Log.e(LOG_TAG, "Error closing stream", e);
                     }
                 }
             }
 
-            return null;
+            return moviesJsonStr;
         }
 
         @Override
-        protected void onPostExecute(ArrayList<String> strings) {
-            super.onPostExecute(strings);
+        protected void onPostExecute(String moviesJSONstr) {
+            super.onPostExecute(moviesJSONstr);
+            try {
+                JSONObject movies = new JSONObject(moviesJSONstr);
+                JSONArray jsonArr = movies.getJSONArray("results");
+
+                topMoviesParcel = new ArrayList<>();
+                int len = jsonArr.length();
+                if ( len > 0) {
+                    for (int i = 0; i < len; i++) {
+                        JSONObject tmpObj = jsonArr.getJSONObject(i);
+                        topMoviesParcel.add(new ParcableMovie(tmpObj.getString("id"), tmpObj.getString("original_title"), tmpObj.getString("poster_path"), tmpObj.getString("overview"), (float) tmpObj.getDouble("popularity"), tmpObj.getString("release_date")));
+                    }
+                } else {
+                    if (toast != null) toast.cancel();
+                    toast.makeText(getActivity(), "No Movies Found!", Toast.LENGTH_SHORT).show();
+                }
+
+            } catch (JSONException e) {
+                e.printStackTrace();
+            }
+
+            adapter = new FrontPosterAdapter(getActivity(), topMoviesParcel);
+            movieGridView.setAdapter(adapter);
         }
     }
 
-
 }
-
-//            //Clear the top tracks list
-//            topTracksParcel = new ArrayList<ParcelableTopTracks>();
-//            if (tracks != null && tracks.size() > 0) {
-//                for (Track track : tracks) {
-//                    //Populate the list with parcelable top tracks
-//                    if(track.album.images.size() > 0)
-//                        topTracksParcel.add(new ParcelableTopTracks(track.name, track.album.name, track.album.images.get(0).url));
-//                    else
-//                        topTracksParcel.add(new ParcelableTopTracks(track.name, track.album.name, null));
-//                }
-//            } else {
-//                if (toast != null)
-//                    toast.cancel();
-//                toast.makeText(getActivity(),"No Top Tracks Found!", Toast.LENGTH_SHORT).show();
-//            }
-//
-//            //Populate list view with adapter
-//            TopTracksAdapter adapter = new TopTracksAdapter(getActivity(), topTracksParcel);
-//            topTracksList.setAdapter(adapter);
