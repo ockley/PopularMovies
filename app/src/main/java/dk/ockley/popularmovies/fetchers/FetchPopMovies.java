@@ -1,12 +1,11 @@
-package dk.ockley.popularmovies;
+package dk.ockley.popularmovies.fetchers;
 
 import android.app.Activity;
 import android.net.Uri;
 import android.os.AsyncTask;
-import android.text.Html;
 import android.util.Log;
-import android.widget.ListView;
-import android.widget.TextView;
+import android.widget.GridView;
+import android.widget.Toast;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -20,20 +19,24 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.ArrayList;
 
+import dk.ockley.popularmovies.MovieKey;
+import dk.ockley.popularmovies.adapters.FrontPosterAdapter;
+import dk.ockley.popularmovies.models.ParcableMovie;
+
 /**
- * Created by kv on 08/09/15.
+ * Created by kv on 01/10/15.
  */
+public class FetchPopMovies extends AsyncTask<String, Void, String> {
+    private static final String LOG_TAG = FetchPopMovies.class.getSimpleName();
 
-public class FetchReviews extends AsyncTask<String, Void, String> {
+    ArrayList<ParcableMovie> topMoviesParcel;
+    GridView movieGridView;
+    Activity activity;
+    private Toast toast;
 
-    private static final String LOG_TAG = "PopMov";
-    TextView tv;
-    Activity context;
-
-    public FetchReviews(Activity activity, TextView reviewsTextView) {
-        this.context = activity;
-        this.tv = reviewsTextView;
-        Log.d(LOG_TAG, "FetchReviews called");
+    public FetchPopMovies(Activity act, GridView gridView) {
+        movieGridView = gridView;
+        activity = act;
     }
 
     @Override
@@ -53,14 +56,16 @@ public class FetchReviews extends AsyncTask<String, Void, String> {
             // Construct the URL for the OpenWeatherMap query
             // Possible parameters are avaiable at OWM's forecast API page, at
             // http://openweathermap.org/API#forecast
-            final String BASE_URL = "http://api.themoviedb.org/3/movie/"+params[0]+"/reviews?";
+            final String BASE_URL = "http://api.themoviedb.org/3/discover/movie?";
+            final String SORT_BY_PARAM = "sort_by";
             final String API_KEY_PARAM = "api_key";
             Uri builtURI = Uri.parse(BASE_URL).buildUpon()
+                    .appendQueryParameter(SORT_BY_PARAM, params[0])
                     .appendQueryParameter(API_KEY_PARAM, MovieKey.KEY)
                     .build();
             URL url = new URL(builtURI.toString());
 
-            Log.v(LOG_TAG, "Built URI : " + builtURI.toString());
+            //Log.v("POPMOVIE", "Built URI : " + builtURI.toString());
 
             // Create the request to OpenWeatherMap, and open the connection
             urlConnection = (HttpURLConnection) url.openConnection();
@@ -89,7 +94,7 @@ public class FetchReviews extends AsyncTask<String, Void, String> {
                 return null;
             }
             moviesJsonStr = buffer.toString();
-            Log.d(LOG_TAG, "Final string " + moviesJsonStr);
+            //Log.d("POPMOVIE", "Final string " + moviesJsonStr);
         } catch (IOException e) {
             Log.e(LOG_TAG, "Error ", e);
             // If the code didn't successfully get the weather data, there's no point in attemping
@@ -114,33 +119,27 @@ public class FetchReviews extends AsyncTask<String, Void, String> {
     @Override
     protected void onPostExecute(String moviesJSONstr) {
         super.onPostExecute(moviesJSONstr);
-        Log.d(LOG_TAG, "JSONSTR: " + moviesJSONstr);
-
         try {
             JSONObject movies = new JSONObject(moviesJSONstr);
             JSONArray jsonArr = movies.getJSONArray("results");
+
+            topMoviesParcel = new ArrayList<>();
             int len = jsonArr.length();
-            Log.d(LOG_TAG, "Length er " + len);
-            StringBuilder sb = new StringBuilder();
-            if ( len > 0){
+            if ( len > 0) {
                 for (int i = 0; i < len; i++) {
                     JSONObject tmpObj = jsonArr.getJSONObject(i);
-                    //Trailer trailer = new Trailer(tmpObj.getString("name"), tmpObj.getString("key"));
-                    //reviews.add(trailer);
-                    Log.d(LOG_TAG, tmpObj.toString());
-                    sb.append("<h4>"+ tmpObj.getString("author")+"</h4>");
-                    sb.append("<p>"+ tmpObj.getString("content")+"</p>");
+                    topMoviesParcel.add(new ParcableMovie(tmpObj.getString("id"), tmpObj.getString("original_title"), tmpObj.getString("poster_path"), tmpObj.getString("overview"), (float) tmpObj.getDouble("popularity"), tmpObj.getString("release_date")));
                 }
-                tv.setText(Html.fromHtml(sb.toString()));
-                Log.d(LOG_TAG, "SB: " + sb.toString());
-            }
-            else {
-//                    if (toast != null) toast.cancel();
-//                    toast.makeText(getActivity(), "No Movies Found!", Toast.LENGTH_SHORT).show();
+            } else {
+                if (toast != null) toast.cancel();
+                toast.makeText(activity, "No Movies Found!", Toast.LENGTH_SHORT).show();
             }
 
         } catch (JSONException e) {
             e.printStackTrace();
         }
+
+        FrontPosterAdapter adapter = new FrontPosterAdapter(activity, topMoviesParcel);
+        movieGridView.setAdapter(adapter);
     }
 }

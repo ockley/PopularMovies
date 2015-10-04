@@ -122,16 +122,7 @@ public class MovieDetailFragment extends Fragment {
             movieSynopsis.setText(movieInfo.getSynopsis());
         }
 
-        // Handle preferences and update Favorite button
-        SharedPreferences favoritePrefs = getActivity().getSharedPreferences(FAVORITE_PREFS, Context.MODE_PRIVATE);
-        final SharedPreferences.Editor favoritePrefsEditor = favoritePrefs.edit();
-//        if (favoritePrefs != null) {
-//            if (favoritePrefs.contains(String.valueOf(movieInfo.getID()))) {
-//                favButton.setChecked(true);
-//            } else {
-//                favButton.setChecked(false);
-//            }
-//        }
+        //Handle favorite position
         if (isFavorite()) {
             Log.d(LOG_TAG, "Sat til TRUE");
             favButton.setChecked(true);
@@ -153,19 +144,9 @@ public class MovieDetailFragment extends Fragment {
                     cValues.put(FavoriteTable.COLUMN_SYNOPSIS, movieInfo.getSynopsis());
                     cValues.put(FavoriteTable.COLUMN_USER_RATING, movieInfo.getUserRating());
                     Uri uri = getActivity().getContentResolver().insert(FavoritesProvider.CONTENT_URI, cValues);
-                    Log.d(LOG_TAG, "URI is: " + uri);
                 } else {
 
-                    String[] projection =
-                    {
-                            FavoriteTable.COLUMN_ID,
-                            FavoriteTable.COLUMN_TITLE,
-                            FavoriteTable.COLUMN_IMAGE_PATH,
-                            FavoriteTable.COLUMN_RELEASE_DATE,
-                            FavoriteTable.COLUMN_USER_RATING,
-                            FavoriteTable.COLUMN_SYNOPSIS,
-
-                    };
+                    String[] projection = Utils.getProjection();
                     String selectionClause = FavoriteTable.COLUMN_ID + " = ?";
                     String[] selectionArgs = {""};
                     selectionArgs[0] = String.valueOf(movieInfo.getID());
@@ -190,6 +171,7 @@ public class MovieDetailFragment extends Fragment {
                                 null);
                     }
                 }
+
             }
         });
 
@@ -203,16 +185,7 @@ public class MovieDetailFragment extends Fragment {
     }
 
     private boolean isFavorite() {
-        String[] projection =
-                {
-                        FavoriteTable.COLUMN_ID,
-                        FavoriteTable.COLUMN_TITLE,
-                        FavoriteTable.COLUMN_IMAGE_PATH,
-                        FavoriteTable.COLUMN_RELEASE_DATE,
-                        FavoriteTable.COLUMN_USER_RATING,
-                        FavoriteTable.COLUMN_SYNOPSIS,
-
-                };
+        String[] projection = Utils.getProjection();
         String selectionClause = FavoriteTable.COLUMN_ID + " = ?";
         String[] selectionArgs = {""};
         selectionArgs[0] = String.valueOf(movieInfo.getID());

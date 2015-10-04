@@ -25,7 +25,7 @@ import dk.ockley.popularmovies.models.Trailer;
  * Created by kv on 08/09/15.
  */
 
-class FetchTrailers extends AsyncTask<String, Void, String> {
+public class FetchTrailers extends AsyncTask<String, Void, String> {
 
     private static final String LOG_TAG = "PopMov";
     ListView lv;
@@ -59,7 +59,7 @@ class FetchTrailers extends AsyncTask<String, Void, String> {
             final String BASE_URL = "http://api.themoviedb.org/3/movie/"+params[0]+"/videos?";
             final String API_KEY_PARAM = "api_key";
             Uri builtURI = Uri.parse(BASE_URL).buildUpon()
-                    .appendQueryParameter(API_KEY_PARAM, "INSERT KEY HERE")
+                    .appendQueryParameter(API_KEY_PARAM, MovieKey.KEY)
                     .build();
             URL url = new URL(builtURI.toString());
 
