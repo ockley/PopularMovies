@@ -5,4 +5,9 @@
     <item android:id="@+id/action_user_rating" android:title="Sort by user rating" android:showAsAction="never"/>
     <item android:id="@+id/action_user_favorites" android:title="Sort by user favorites" android:showAsAction="never"/>
 
+    <item android:id="@+id/action_item_share"
+        android:title="@string/action_share"
+        app:showAsAction="always"
+        app:actionProviderClass="android.support.v7.widget.ShareActionProvider"
+        android:visible="false"/>
 </menu>

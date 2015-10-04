@@ -32,11 +32,13 @@ public class FetchPopMovies extends AsyncTask<String, Void, String> {
     ArrayList<ParcableMovie> topMoviesParcel;
     GridView movieGridView;
     Activity activity;
+
     private Toast toast;
 
-    public FetchPopMovies(Activity act, GridView gridView) {
+    public FetchPopMovies(Activity act, GridView gridView, ArrayList<ParcableMovie> list) {
         movieGridView = gridView;
         activity = act;
+        topMoviesParcel = list;
     }
 
     @Override
@@ -123,7 +125,7 @@ public class FetchPopMovies extends AsyncTask<String, Void, String> {
             JSONObject movies = new JSONObject(moviesJSONstr);
             JSONArray jsonArr = movies.getJSONArray("results");
 
-            topMoviesParcel = new ArrayList<>();
+            topMoviesParcel = new ArrayList<ParcableMovie>();
             int len = jsonArr.length();
             if ( len > 0) {
                 for (int i = 0; i < len; i++) {
@@ -141,5 +143,6 @@ public class FetchPopMovies extends AsyncTask<String, Void, String> {
 
         FrontPosterAdapter adapter = new FrontPosterAdapter(activity, topMoviesParcel);
         movieGridView.setAdapter(adapter);
+        Log.d(LOG_TAG, "TOP PARCEL: " + topMoviesParcel.toString());
     }
 }

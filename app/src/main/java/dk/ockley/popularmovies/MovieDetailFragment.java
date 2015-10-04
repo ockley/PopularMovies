@@ -2,14 +2,15 @@ package dk.ockley.popularmovies;
 
 import android.app.Fragment;
 import android.content.ContentValues;
-import android.content.Context;
 import android.content.Intent;
-import android.content.SharedPreferences;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
+import android.support.v4.view.MenuItemCompat;
 import android.util.Log;
 import android.view.LayoutInflater;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.AdapterView;
@@ -17,6 +18,7 @@ import android.widget.CompoundButton;
 import android.widget.ImageView;
 import android.widget.ListView;
 import android.widget.RatingBar;
+import android.support.v7.widget.ShareActionProvider;
 import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.ToggleButton;
@@ -27,6 +29,8 @@ import java.util.ArrayList;
 
 import dk.ockley.popularmovies.contentprovider.FavoritesProvider;
 import dk.ockley.popularmovies.data.FavoriteTable;
+import dk.ockley.popularmovies.fetchers.FetchReviews;
+import dk.ockley.popularmovies.fetchers.FetchTrailers;
 import dk.ockley.popularmovies.models.ParcableMovie;
 import dk.ockley.popularmovies.models.Review;
 import dk.ockley.popularmovies.models.Trailer;
@@ -53,11 +57,47 @@ public class MovieDetailFragment extends Fragment {
 
     public MovieDetailFragment() {}
 
+    //Setup menu
+
+
+    @Override
+    public void onPrepareOptionsMenu(Menu menu) {
+        super.onPrepareOptionsMenu(menu);
+        menu.clear();
+        getActivity().getMenuInflater().inflate(R.menu.menu_main, menu);
+
+        MenuItem menuItem = menu.findItem(R.id.action_item_share);
+        menuItem.setVisible(true);
+        ShareActionProvider mShareActionProvider = (ShareActionProvider) MenuItemCompat.getActionProvider(menuItem);
+       if (!trailers.isEmpty()) {
+            if (mShareActionProvider != null) {
+                mShareActionProvider.setShareIntent(createYouTubeIntent(trailers.get(0)));
+            } else {
+                Log.d(LOG_TAG, "Share is null!");
+            }
+       }
+    }
+
+    private Intent createYouTubeIntent(Trailer trailer) {
+        Intent shareIntent = new Intent(Intent.ACTION_SEND);
+        shareIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_DOCUMENT);
+        shareIntent.setType("text/plain");
+        shareIntent.putExtra(Intent.EXTRA_TEXT,"Hey, take a look at " + trailer.getTitle() + "\n" + Uri.parse("http://www.youtube.com/watch?v=" + trailer.getKey()));
+        return shareIntent;
+    }
+
+    @Override
+    public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setHasOptionsMenu(true);
+    }
+
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
 
         //Set retain to true to save data on rotation
         setRetainInstance(true);
+        setHasOptionsMenu(true);
 
         View v =  inflater.inflate(R.layout.fragment_movie_detail, container, false);
 

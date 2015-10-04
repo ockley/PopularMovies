@@ -2,8 +2,9 @@ package dk.ockley.popularmovies;
 
 import android.app.Activity;
 import android.os.Bundle;
+import android.support.v7.app.ActionBarActivity;
 
-public class MovieDetail extends Activity {
+public class MovieDetail extends ActionBarActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {

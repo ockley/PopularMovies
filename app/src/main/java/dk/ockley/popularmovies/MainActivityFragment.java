@@ -33,11 +33,10 @@ public class MainActivityFragment extends Fragment implements LoaderManager.Load
     private static final String INSTANCE_MOVIE = "instane_movie";
     private static final String LOG_TAG = MainActivityFragment.class.getSimpleName();
     private GridView movieGridView;
-    private ArrayList<ParcableMovie> topMoviesParcel;
+    public ArrayList<ParcableMovie> topMoviesParcel;
     private Toast toast;
     private Callbacks mCallbacks;
-    FrontPosterAdapter adapter;
-    FrontPosterAdapter favAdapter;
+    private FrontPosterAdapter adapter;
 
     public MainActivityFragment() {
 
@@ -47,7 +46,9 @@ public class MainActivityFragment extends Fragment implements LoaderManager.Load
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setHasOptionsMenu(true);
-        getLoaderManager().initLoader(0, null, this);
+        if (savedInstanceState == null) {
+            //getLoaderManager().initLoader(0, null, this);
+        }
     }
 
     @Override
@@ -55,7 +56,7 @@ public class MainActivityFragment extends Fragment implements LoaderManager.Load
 
         // Swith between all action bar settings
         int id = item.getItemId();
-                FetchPopMovies fetchPopMovies = new FetchPopMovies(getActivity(), movieGridView);
+                FetchPopMovies fetchPopMovies = new FetchPopMovies(getActivity(), movieGridView, topMoviesParcel);
         switch (id) {
             case (R.id.action_popular):
                 fetchPopMovies.execute("popularity.desc");
@@ -77,11 +78,7 @@ public class MainActivityFragment extends Fragment implements LoaderManager.Load
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
 
         View v = inflater.inflate(R.layout.movie_list, container, false);
-
-        // Hook op grid view and fetch data
         movieGridView = (GridView) v.findViewById(R.id.popular_movies_gridview);
-        FetchPopMovies fetchPopMovies = new FetchPopMovies(getActivity(), movieGridView);
-        fetchPopMovies.execute("popularity.desc");
 
         // Handle click and set a callback function
         movieGridView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
@@ -90,6 +87,22 @@ public class MainActivityFragment extends Fragment implements LoaderManager.Load
                 mCallbacks.onMovieSelected((ParcableMovie) movieGridView.getItemAtPosition(position));
             }
         });
+
+        if (savedInstanceState != null && savedInstanceState.containsKey(INSTANCE_MOVIE)) {
+            //Something was saved
+            Log.v(LOG_TAG, "IM IN!!");
+            try {
+                topMoviesParcel = savedInstanceState.getParcelableArrayList(INSTANCE_MOVIE);
+                adapter = new FrontPosterAdapter(getActivity(), topMoviesParcel);
+                movieGridView.setAdapter(adapter);
+            } catch (Error e) {
+
+            }
+        } else {
+            // Hook op grid view and fetch data
+            FetchPopMovies fetchPopMovies = new FetchPopMovies(getActivity(), movieGridView, topMoviesParcel);
+            fetchPopMovies.execute("popularity.desc");
+        }
         return v;
     }
 
@@ -97,7 +110,13 @@ public class MainActivityFragment extends Fragment implements LoaderManager.Load
     @Override
     public void onSaveInstanceState(Bundle outState) {
         super.onSaveInstanceState(outState);
-        outState.putParcelableArrayList(INSTANCE_MOVIE, topMoviesParcel);
+        int count = movieGridView.getCount();
+        ArrayList<ParcableMovie> outList = new ArrayList<>();
+        for(int i=0; i<count; ++i)
+        {
+            outList.add((ParcableMovie) movieGridView.getItemAtPosition(i));
+        }
+        outState.putParcelableArrayList(INSTANCE_MOVIE, outList);
     }
 
     // Methods to hook up the callback to the activity
@@ -113,20 +132,11 @@ public class MainActivityFragment extends Fragment implements LoaderManager.Load
         mCallbacks = null;
     }
 
-
-
     @Override
     public Loader<Cursor> onCreateLoader(int id, Bundle args) {
         Log.d(LOG_TAG, "CREATE LOADER");
-        String[] projection =
-                {
-                        FavoriteTable.COLUMN_ID,
-                        FavoriteTable.COLUMN_TITLE,
-                        FavoriteTable.COLUMN_IMAGE_PATH,
-                        FavoriteTable.COLUMN_RELEASE_DATE,
-                        FavoriteTable.COLUMN_USER_RATING,
-                        FavoriteTable.COLUMN_SYNOPSIS,
-                };
+        String[] projection = Utils.getProjection();
+
         CursorLoader cursorLoader = new CursorLoader(getActivity(), FavoritesProvider.CONTENT_URI, projection, null, null, null);
         return cursorLoader;
     }
@@ -145,8 +155,8 @@ public class MainActivityFragment extends Fragment implements LoaderManager.Load
                     data.getString(data.getColumnIndex(FavoriteTable.COLUMN_RELEASE_DATE))));
         }
 
-        favAdapter = new FrontPosterAdapter(getActivity(), topMoviesParcel);
-        movieGridView.setAdapter(favAdapter);
+        adapter = new FrontPosterAdapter(getActivity(), topMoviesParcel);
+        movieGridView.setAdapter(adapter);
     }
 
     @Override
@@ -154,6 +164,7 @@ public class MainActivityFragment extends Fragment implements LoaderManager.Load
         Log.d(LOG_TAG, "LOADER RESET");
 
     }
+
 
     public interface Callbacks {
 

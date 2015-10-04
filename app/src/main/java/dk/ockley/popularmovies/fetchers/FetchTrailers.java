@@ -1,4 +1,4 @@
-package dk.ockley.popularmovies;
+package dk.ockley.popularmovies.fetchers;
 
 import android.app.Activity;
 import android.net.Uri;
@@ -18,6 +18,7 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.ArrayList;
 
+import dk.ockley.popularmovies.MovieKey;
 import dk.ockley.popularmovies.adapters.TrailerAdapter;
 import dk.ockley.popularmovies.models.Trailer;
 

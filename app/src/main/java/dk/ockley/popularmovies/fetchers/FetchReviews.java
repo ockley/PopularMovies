@@ -1,4 +1,4 @@
-package dk.ockley.popularmovies;
+package dk.ockley.popularmovies.fetchers;
 
 import android.app.Activity;
 import android.net.Uri;
@@ -19,6 +19,8 @@ import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.ArrayList;
+
+import dk.ockley.popularmovies.MovieKey;
 
 /**
  * Created by kv on 08/09/15.
